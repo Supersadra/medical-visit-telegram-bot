@@ -2,6 +2,7 @@ from telegram import Update, InputFile
 from telegram.ext import Updater, CommandHandler, MessageHandler, filters, ContextTypes, Application
 from telegram.ext.filters import MessageFilter
 import openpyxl
+import helper_funcs
 
 # VARIABLES ###############################################################################
 
@@ -57,7 +58,7 @@ async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             doctors_dict[key][3] = shift_lst
     
 
-    await update.message.reply_text('🩺 فهرست کلینیک‌ها' + f'\n\n{'\n'.join(ordered_text(list(clinics_dict.keys())))}\n\n' + '✅ شماره کلینیک موردنظر خود را وارد کنید.')
+    await update.message.reply_text('🩺 فهرست کلینیک‌ها' + f'\n\n{'\n'.join(helper_funcs.ordered_text(list(clinics_dict.keys())))}\n\n' + '✅ شماره کلینیک موردنظر خود را وارد کنید.')
 
     context.user_data['level'] = 1
     
@@ -69,7 +70,7 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text('❌ پیام اشتباه! لطفا شماره کلینیک موردنظر خود را وارد کنید.')
         if user_clinic-1 in range(len(clinics_dict.keys())):
             selected_clinic = list(clinics_dict.keys())[user_clinic-1]
-            await update.message.reply_text(f'بخش‌های {selected_clinic}\n\n' + '\n'.join(ordered_text(clinics_dict[selected_clinic])) + '\n\n ✅ شماره بخش موردنظر خود را وارد کنید.')
+            await update.message.reply_text(f'بخش‌های {selected_clinic}\n\n' + '\n'.join(helper_funcs.ordered_text(clinics_dict[selected_clinic])) + '\n\n ✅ شماره بخش موردنظر خود را وارد کنید.')
             context.user_data['level'] = 2
             context.user_data['user_choice_level_1'] = selected_clinic
         else:
@@ -82,8 +83,8 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text('❌ پیام اشتباه! لطفا شماره بخش موردنظر خود را وارد کنید.')
         if user_section-1 in range(len(clinics_dict[context.user_data['user_choice_level_1']])):
             selected_section = clinics_dict[context.user_data['user_choice_level_1']][user_section-1]
-            doctors = find_doctors(selected_section)
-            await update.message.reply_text('👨‍⚕️👩‍⚕️ فهرست پزشکان\n\n' + show_results(doctors) + '\n\n ✅ شماره پزشک و شیفت موردنظر خود را مطابق نمونه وارد کنید.(نمونه متن ارسالی: 2/صبح)')
+            doctors = helper_funcs.find_doctors(selected_section)
+            await update.message.reply_text('👨‍⚕️👩‍⚕️ فهرست پزشکان\n\n' + helper_funcs.show_results(doctors) + '\n\n ✅ شماره پزشک و شیفت موردنظر خود را مطابق نمونه وارد کنید.(نمونه متن ارسالی: 2/صبح)')
             context.user_data['level'] = 3
             context.user_data['user_choice_level_2'] = selected_section
             context.user_data['user_doctors'] = doctors
@@ -116,7 +117,7 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text(f'درخواست شما جهت تهیه نوبت با این اطلاعات ثبت شد.\nنام پزشک:{context.user_data['user_choice_level_3'][0]}\nشیفت:{context.user_data['user_choice_level_3'][1]}\nشماره تلفن:{user_personal_info[0]}\nکدملی:{user_personal_info[1]}')
 
             data_to_save = [user_personal_info[1],user_personal_info[0],context.user_data['user_choice_level_3'][0],context.user_data['user_choice_level_3'][1]]
-            context.user_data['empty_cell'] = empty_cell()
+            context.user_data['empty_cell'] = helper_funcs.empty_cell()
             for j, value in enumerate(data_to_save, start=1):
                 sheet_visits.cell(row=context.user_data['empty_cell'], column=j).value = value
             wb_visits.save('Userside bot\\visits.xlsx')
@@ -135,38 +136,6 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     else:
         await update.message.reply_text('❌ پیام اشتباه! ابتدا برای تهیه نوبت از دستور /visit  استفاده کنید.')
 
-# Helper functions
-def find_doctors(section):
-    doctors_list = []
-    for doctor, details in doctors_dict.items():
-        if section == details[1]:
-            doctors_list.append(doctor)
-    return doctors_list
-
-def show_results(doctors):
-    messages = []
-    for doctor in doctors:
-        message = f"{doctors.index(doctor)+1}. {doctor}\nکد نظام پزشکی:{doctors_dict[doctor][0]}\nتخصص:{doctors_dict[doctor][2]}\nشیفت ها:{' , '.join(doctors_dict[doctor][3])}"
-
-        messages.append(message)
-    return '\n\n'.join(messages)
-
-def empty_cell():
-    n = 2
-    while True:
-        cell_obj = sheet_visits.cell(row = n, column = 1)
-        if cell_obj.value == None:
-            return n
-            break
-        else:
-            n += 1
-
-def ordered_text(text_lst):
-    ordered_text = []
-    for i in range(len(text_lst)):
-        text = f'{i+1}. {text_lst[i]}'
-        ordered_text.append(text)
-    return ordered_text
 
 def main():
     application = Application.builder().token("7047332494:AAEsLSu5OJqCYQ1VBleQevBqEbOxQ_Sx_B0").build()
