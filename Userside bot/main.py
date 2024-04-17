@@ -43,7 +43,7 @@ async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         for column in range(sheet_doctors.max_column-1):
             column_obj = sheet_doctors.cell(row = row+2, column = column+2)
             doctors_dict[row_obj.value].append(column_obj.value)    
-       
+    
     for key in doctors_dict.keys():
         if len(doctors_dict[key][3]) > 3:
             if ',' in list(doctors_dict[key][3]):
@@ -83,8 +83,8 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text('❌ پیام اشتباه! لطفا شماره بخش موردنظر خود را وارد کنید.')
         if user_section-1 in range(len(clinics_dict[context.user_data['user_choice_level_1']])):
             selected_section = clinics_dict[context.user_data['user_choice_level_1']][user_section-1]
-            doctors = helper_funcs.find_doctors(selected_section)
-            await update.message.reply_text('👨‍⚕️👩‍⚕️ فهرست پزشکان\n\n' + helper_funcs.show_results(doctors) + '\n\n ✅ شماره پزشک و شیفت موردنظر خود را مطابق نمونه وارد کنید.(نمونه متن ارسالی: 2/صبح)')
+            doctors = helper_funcs.find_doctors(selected_section,doctors_dict)
+            await update.message.reply_text('👨‍⚕️👩‍⚕️ فهرست پزشکان\n\n' + helper_funcs.show_results(doctors,doctors_dict) + '\n\n ✅ شماره پزشک و شیفت موردنظر خود را مطابق نمونه وارد کنید.(نمونه متن ارسالی: 2/صبح)')
             context.user_data['level'] = 3
             context.user_data['user_choice_level_2'] = selected_section
             context.user_data['user_doctors'] = doctors
@@ -117,7 +117,7 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text(f'درخواست شما جهت تهیه نوبت با این اطلاعات ثبت شد.\nنام پزشک:{context.user_data['user_choice_level_3'][0]}\nشیفت:{context.user_data['user_choice_level_3'][1]}\nشماره تلفن:{user_personal_info[0]}\nکدملی:{user_personal_info[1]}')
 
             data_to_save = [user_personal_info[1],user_personal_info[0],context.user_data['user_choice_level_3'][0],context.user_data['user_choice_level_3'][1]]
-            context.user_data['empty_cell'] = helper_funcs.empty_cell()
+            context.user_data['empty_cell'] = helper_funcs.empty_cell(sheet_visits)
             for j, value in enumerate(data_to_save, start=1):
                 sheet_visits.cell(row=context.user_data['empty_cell'], column=j).value = value
             wb_visits.save('Userside bot\\visits.xlsx')
