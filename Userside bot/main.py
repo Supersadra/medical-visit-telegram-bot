@@ -7,6 +7,15 @@ import psycopg2
 
 # VARIABLES ###############################################################################
 
+# Connect to database
+conn = psycopg2.connect(database = "Hospital Database (Sadra Hosseini)", 
+                        user = "postgres", 
+                        host= 'a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',
+                        password = "KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",
+                        port = 30500)
+print('App connected to database!')
+cur = conn.cursor()
+
 wb_clinics = openpyxl.load_workbook('Userside bot\\clinics.xlsx')
 sheet_clinics = wb_clinics.active
 
@@ -31,13 +40,14 @@ async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 clinics_dict[column_obj.value].append(row_obj.value)
     
     
-    # Reading doctors table from database
-    for row in range(sheet_doctors.max_row-1):
-        row_obj = sheet_doctors.cell(row = row+2, column = 1)
-        doctors_dict[row_obj.value] = []
-        for column in range(sheet_doctors.max_column-1):
-            column_obj = sheet_doctors.cell(row = row+2, column = column+2)
-            doctors_dict[row_obj.value].append(column_obj.value)    
+    # Get doctors table from database
+    cur.execute('SELECT * FROM public.doctors')
+    rows = cur.fetchall()
+
+    for row_index in range(len(rows)):
+        row_lst = list(rows[row_index])
+        doctors_dict[row_lst[0]] = [row_lst[1],row_lst[2],row_lst[3],row_lst[4]]  
+    
     
     for key in doctors_dict.keys():
         if len(doctors_dict[key][3]) > 3:
@@ -52,7 +62,6 @@ async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             shift_lst.append(doctors_dict[key][3])
             doctors_dict[key][3] = shift_lst
     
-
     await update.message.reply_text('🩺 فهرست کلینیک‌ها' + f'\n\n{'\n'.join(helper_funcs.ordered_text(list(clinics_dict.keys())))}\n\n' + '✅ شماره کلینیک موردنظر خود را وارد کنید.')
 
     context.user_data['level'] = 1
