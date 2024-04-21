@@ -3,17 +3,12 @@ from telegram.ext import Updater, CommandHandler, MessageHandler, filters, Conte
 from telegram.ext.filters import MessageFilter
 import openpyxl
 import helper_funcs
+import psycopg2
 
 # VARIABLES ###############################################################################
 
-wb_visits = openpyxl.load_workbook('Userside bot\\visits.xlsx')
-sheet_visits = wb_visits.active
-
 wb_clinics = openpyxl.load_workbook('Userside bot\\clinics.xlsx')
 sheet_clinics = wb_clinics.active
-
-wb_doctors = openpyxl.load_workbook('Userside bot\\doctors.xlsx')
-sheet_doctors = wb_doctors.active
 
 clinics_dict = {}
 doctors_dict = {}
@@ -36,7 +31,7 @@ async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 clinics_dict[column_obj.value].append(row_obj.value)
     
     
-    # Reading doctors.xlsx file
+    # Reading doctors table from database
     for row in range(sheet_doctors.max_row-1):
         row_obj = sheet_doctors.cell(row = row+2, column = 1)
         doctors_dict[row_obj.value] = []
