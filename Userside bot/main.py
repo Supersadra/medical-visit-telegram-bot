@@ -22,6 +22,7 @@ sheet_clinics = wb_clinics.active
 clinics_dict = {}
 doctors_dict = {}
 
+
 ############################################################################################
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -40,13 +41,13 @@ async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 clinics_dict[column_obj.value].append(row_obj.value)
     
     
-    # Get doctors table from database
+    # Get doctors table from the database
     cur.execute('SELECT * FROM public.doctors')
-    rows = cur.fetchall()
+    doctors = cur.fetchall()
 
-    for row_index in range(len(rows)):
-        row_lst = list(rows[row_index])
-        doctors_dict[row_lst[0]] = [row_lst[1],row_lst[2],row_lst[3],row_lst[4]]  
+    for row_index in range(len(doctors)):
+        row_lst = list(doctors[row_index])
+        doctors_dict[row_lst[0]] = [row_lst[1],row_lst[2],row_lst[3],row_lst[4]]
     
     
     for key in doctors_dict.keys():
@@ -61,6 +62,11 @@ async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             shift_lst = []
             shift_lst.append(doctors_dict[key][3])
             doctors_dict[key][3] = shift_lst
+
+    # Get times table from the database
+    cur.execute('SELECT * FROM public.times')
+    context.user_data['times'] = cur.fetchall()
+    
     
     await update.message.reply_text('🩺 فهرست کلینیک‌ها' + f'\n\n{'\n'.join(helper_funcs.ordered_text(list(clinics_dict.keys())))}\n\n' + '✅ شماره کلینیک موردنظر خود را وارد کنید.')
 
@@ -88,7 +94,7 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         if user_section-1 in range(len(clinics_dict[context.user_data['user_choice_level_1']])):
             selected_section = clinics_dict[context.user_data['user_choice_level_1']][user_section-1]
             doctors = helper_funcs.find_doctors(selected_section,doctors_dict)
-            await update.message.reply_text('👨‍⚕️👩‍⚕️ فهرست پزشکان\n\n' + helper_funcs.show_results(doctors,doctors_dict) + '\n\n ✅ شماره پزشک و شیفت موردنظر خود را مطابق نمونه وارد کنید.(نمونه متن ارسالی: 2/صبح)')
+            await update.message.reply_text('👨‍⚕️👩‍⚕️ فهرست پزشکان\n\n' + helper_funcs.show_doctor_results(doctors,doctors_dict) + '\n\n ✅ شماره پزشک و شیفت موردنظر خود را مطابق نمونه وارد کنید.(نمونه متن ارسالی: 2/صبح)')
             context.user_data['level'] = 3
             context.user_data['user_choice_level_2'] = selected_section
             context.user_data['user_doctors'] = doctors
@@ -96,26 +102,48 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text('❌ پیام اشتباه! لطفا در وارد کردن شماره بخش موردنظر دقت فرمایید.') 
     
     elif context.user_data.get('level') == 3: # Level 3: Select the doctor
-        user_doctorandshift = update.message.text.split('/')
+        try:
+            user_doctorandshift = update.message.text.split('/')
+        except:
+            await update.message.reply_text('❌ متن ارسالی را مطابق نمونه داده شده وارد کنید.')
         if int(user_doctorandshift[0])-1 in range(len(context.user_data['user_doctors'])):
             selected_doctor = context.user_data['user_doctors'][int(user_doctorandshift[0])-1]
-            try:
-                if user_doctorandshift[1] in doctors_dict[selected_doctor][3]:
-                    await update.message.reply_text('''
-                    📞🔢 جهت تایید نهایی نوبت، شماره تلفن و کدملی خود را با اعداد انگلیسی وارد کنید.
-                    (فرمت ارسال: شماره تلفن/کدملی)
-                    ''')
-                    user_doctorandshift[0] = selected_doctor
-                    context.user_data['level'] = 4
-                    context.user_data['user_choice_level_3'] = user_doctorandshift
-                else:
-                    await update.message.reply_text('☹️ شیفت موردنظر شما برای این پزشک موجود نمی‌باشد.')
-            except:
-                await update.message.reply_text('❌ پیام اشتباه! شیفت پزشک موردنظر خود را وارد کنید.')
+            if user_doctorandshift[1] in doctors_dict[selected_doctor][3]:
+                times = []
+                for item in context.user_data['times']:
+                    if (list(item)[0] == selected_doctor) and (list(item)[2] == user_doctorandshift[1]):
+                        times.append(list(item))
+                await update.message.reply_text('نوبت های موجود\n\n'+ helper_funcs.show_times_results(times) +'\n\n✅ شماره نوبت مورد نظر خود را وارد کنید.' )
+                context.user_data['level'] = 4
+                context.user_data['user_choice_level_3'] = times
+            else:
+                await update.message.reply_text('☹️ نوبت موردنظر شما در حال حاضر موجود نمی‌باشد.')
         else:
-            await update.message.reply_text('❌ پیام اشتباه! لطفا در تایپ کردن شماره پزشک موردنظرتان دقت فرمایید.') 
+            await update.message.reply_text('❌ پیام اشتباه! لطفا در تایپ کردن شماره پزشک موردنظرتان دقت فرمایید.')
+                          
     
-    elif context.user_data.get('level') == 4: # Level 4: Get personal info from user
+    elif context.user_data.get('level') == 4: # Level 4: Select the visit time
+        pass
+        # user_doctorandshift = update.message.text.split('/')
+        # if int(user_doctorandshift[0])-1 in range(len(context.user_data['user_doctors'])):
+        #     selected_doctor = context.user_data['user_doctors'][int(user_doctorandshift[0])-1]
+        #     try:
+        #         if user_doctorandshift[1] in doctors_dict[selected_doctor][3]:
+        #             await update.message.reply_text('''
+        #             📞🔢 جهت تایید نهایی نوبت، شماره تلفن و کدملی خود را با اعداد انگلیسی وارد کنید.
+        #             (فرمت ارسال: شماره تلفن/کدملی)
+        #             ''')
+        #             user_doctorandshift[0] = selected_doctor
+        #             context.user_data['level'] = 5
+        #             context.user_data['user_choice_level_3'] = user_doctorandshift
+        #         else:
+        #             await update.message.reply_text('☹️ شیفت موردنظر شما برای این پزشک موجود نمی‌باشد.')
+        #     except:
+        #         await update.message.reply_text('❌ پیام اشتباه! شیفت پزشک موردنظر خود را وارد کنید.')
+        # else:
+        #     await update.message.reply_text('❌ پیام اشتباه! لطفا در تایپ کردن شماره پزشک موردنظرتان دقت فرمایید.') 
+    
+    elif context.user_data.get('level') == 5: # Level 5: Get personal info from user
         user_personal_info = update.message.text.split('/')
         if (str(user_personal_info[0])[0:2] == '09' and len(str(user_personal_info[0])) == 11) and len(str(user_personal_info[1])) == 10:
             await update.message.reply_text(f'درخواست شما جهت تهیه نوبت با این اطلاعات ثبت شد.\nنام پزشک:{context.user_data['user_choice_level_3'][0]}\nشیفت:{context.user_data['user_choice_level_3'][1]}\nشماره تلفن:{user_personal_info[0]}\nکدملی:{user_personal_info[1]}')
@@ -133,6 +161,7 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             context.user_data['user_choice_level_3'] = None
             context.user_data['user_doctors'] = None
             context.user_data['empty_cell'] = None
+            context.user_data['times'] = None
             
         else:
             await update.message.reply_text('❌ .پیام اشتباه! شماره تلفن باید با 09 شروع شود و کدملی هم می بایست 10 رقم باشد. همچنین اعداد باید انگلیسی وارد شده باشند.')

@@ -1,2 +1,1 @@
--- DELETE FROM public.doctors WHERE shifts != 'صبح،شب';
-SELECT * FROM public.doctors
+-- SELECT * FROM public.doctors
