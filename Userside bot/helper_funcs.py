@@ -19,16 +19,6 @@ def show_times_results(times_lst):
         messages.append(message)
     return '\n\n'.join(messages)
 
-def empty_cell(excel_sheet):
-    n = 2
-    while True:
-        cell_obj = excel_sheet.cell(row = n, column = 1)
-        if cell_obj.value == None:
-            return n
-            break
-        else:
-            n += 1
-
 def ordered_text(text_lst):
     ordered_text = []
     for i in range(len(text_lst)):
