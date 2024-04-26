@@ -17,7 +17,7 @@ conn = psycopg2.connect(database = "Hospital Database (Sadra Hosseini)",
 print('App connected to database!')
 cur = conn.cursor()
 
-wb_clinics = openpyxl.load_workbook('Userside bot\\clinics.xlsx')
+wb_clinics = openpyxl.load_workbook('clinics.xlsx')
 sheet_clinics = wb_clinics.active
 
 clinics_dict = {}
