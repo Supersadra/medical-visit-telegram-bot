@@ -15,7 +15,14 @@ def show_doctor_results(doctors,doctors_dict):
 def show_times_results(times_lst):
     messages = []
     for time in times_lst:
-        message = f"{times_lst.index(time)+1}. روز هفته: {time[1]}\nشیفت: {time[2]}\nساعت: {time[3]}\nتاریخ: {time[4]}"
+        message = f"{times_lst.index(time)+1}. روز هفته: {time[2]}\nشیفت: {time[3]}\nساعت: {time[4]}\nتاریخ: {time[5]}"
+        messages.append(message)
+    return '\n\n'.join(messages)
+
+def show_myvisits_results(visits):
+    messages = []
+    for visit in visits:
+        message = f"🟢  کدملی: {visit[2]}\nشماره تلفن: {visit[3]}\nنام پزشک: {visit[4]}\nکلینیک: {visit[5]}\nروز هفته: {visit[7]}\nساعت: {visit[6]}\nتاریخ: {visit[8]}"
         messages.append(message)
     return '\n\n'.join(messages)
 

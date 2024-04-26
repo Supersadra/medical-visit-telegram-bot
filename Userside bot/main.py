@@ -116,7 +116,7 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                 if user_doctorandshift[1] in doctors_dict[selected_doctor][3]:
                     times = []
                     for item in context.user_data['times']:
-                        if (list(item)[0] == selected_doctor) and (list(item)[2] == user_doctorandshift[1]):
+                        if (list(item)[1] == selected_doctor) and (list(item)[3] == user_doctorandshift[1]):
                             times.append(list(item))
                     await update.message.reply_text('💠 نوبت های موجود\n\n'+ helper_funcs.show_times_results(times) +'\n\n✅ شماره نوبت مورد نظر خود را وارد کنید.' )
                     context.user_data['level'] = 4
@@ -147,18 +147,17 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     elif context.user_data.get('level') == 5: # Level 5: Get personal info from user
         user_personal_info = update.message.text.split('/')
         if (str(user_personal_info[0])[0:2] == '09' and len(str(user_personal_info[0])) == 11) and len(str(user_personal_info[1])) == 10:
-            await update.message.reply_text('✅ درخواست شما جهت تهیه نوبت با این اطلاعات ثبت شد.\n\nکدملی: %s\nشماره تلفن: %s\nنام پزشک: %s\nکلینیک: %s\nروز هفته: %s\nساعت: %s\nتاریخ: %s' % (user_personal_info[1],user_personal_info[0],context.user_data['selected_doctor'],context.user_data['user_choice_level_2'],context.user_data['user_choice_level_4'][1],context.user_data['user_choice_level_4'][3],context.user_data['user_choice_level_4'][4]))
+            await update.message.reply_text('✅ درخواست شما جهت تهیه نوبت با این اطلاعات ثبت شد.\n\nکدملی: %s\nشماره تلفن: %s\nنام پزشک: %s\nکلینیک: %s\nروز هفته: %s\nساعت: %s\nتاریخ: %s' % (user_personal_info[1],user_personal_info[0],context.user_data['selected_doctor'],context.user_data['user_choice_level_2'],context.user_data['user_choice_level_4'][2],context.user_data['user_choice_level_4'][4],context.user_data['user_choice_level_4'][5]))
             
             data_to_save = [update.message.from_user.id, # Telegram ID
                             user_personal_info[1], # National code
                             user_personal_info[0], # Phone number
                             context.user_data['selected_doctor'], # Selected doctor for visit
                             context.user_data['user_choice_level_2'], # Selected clinic(section)
-                            context.user_data['user_choice_level_4'][3], # Visit hour
-                            context.user_data['user_choice_level_4'][1], # Visit weekday
-                            context.user_data['user_choice_level_4'][4] # Visit date
+                            context.user_data['user_choice_level_4'][4], # Visit hour
+                            context.user_data['user_choice_level_4'][2], # Visit weekday
+                            context.user_data['user_choice_level_4'][5] # Visit date
                             ]
-
             
             sql_query = 'INSERT INTO public.visits (telegram_id, national_code, phone_number, doctor, section, visit_hour, visit_weekday, visit_date) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)'
             cur.execute(sql_query,data_to_save)
@@ -175,12 +174,27 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             context.user_data['times'] = None
             context.user_data['user_id'] = None
 
-            
         else:
             await update.message.reply_text('❌ .پیام اشتباه! شماره تلفن باید با 09 شروع شود و کدملی هم می بایست 10 رقم باشد. همچنین اعداد باید انگلیسی وارد شده باشند.')
-
     else:
         await update.message.reply_text('❌ پیام اشتباه! ابتدا برای تهیه نوبت از دستور /visit  استفاده کنید.')
+
+async def myvisits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text('شما با استفاده از این دستور می‌توانید تمام نوبت‌های تهیه شده توسط این اکانت تلگرام را مشاهده کنید.')
+    
+    cur.execute('SELECT * FROM public.visits')
+    visits = cur.fetchall()
+    user_id = update.message.from_user.id
+
+    user_visits = []
+    for visit in visits:
+        if user_id == visit[1]:
+            user_visits.append(visit)
+    
+    if len(user_visits) != 0:
+        await update.message.reply_text('💠  نوبت‌های تهیه شده توسط این اکانت تلگرام:\n\n' + helper_funcs.show_myvisits_results(user_visits))
+    else:
+        await update.message.reply_text('در حال حاضر شما نوبتی تهیه نکرده‌اید. ☹️')
 
 
 def main():
@@ -189,6 +203,7 @@ def main():
     # Command Handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("visit", visit_command))
+    application.add_handler(CommandHandler("myvisits", myvisits_command))
 
     # Message Handlers
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, visit_process))
