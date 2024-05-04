@@ -1,11 +1,11 @@
--- INSERT INTO public.times (doctor_name,weekday,shift,hour,date)
--- VALUES ('فاطمه بیرقدار','دوشنبه','صبح','10:30','2/10/1403')
--- VALUES ('Fateme Beiraghdar','Monday','morning','10:30','2/17/1403',2,1)
+-- INSERT INTO public.times (doctor_name,weekday,shift,hour,date,capacity,visit_count)
+-- VALUES ('فاطمه بیرقدار','دوشنبه','صبح','10:30','2/10/1403',2,0)
+
 
 SELECT * FROM public.visits
 
--- DELETE FROM public.visits WHERE id = 8
+-- DELETE FROM public.visits
 
 -- UPDATE public.times
--- SET date='2/10/1403'
--- WHERE id=1
+-- SET visit_count = 0
+-- WHERE id=5

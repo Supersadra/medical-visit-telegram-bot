@@ -4,10 +4,10 @@ from telegram.ext.filters import MessageFilter
 import openpyxl
 import helper_funcs
 import psycopg2
-from datetime import datetime
+from datetime import datetime 
+import pandas as pd
 
 # VARIABLES ###############################################################################
-
 # Connect to database
 conn = psycopg2.connect(database = "Hospital Database (Sadra Hosseini)", 
                         user = "postgres", 
@@ -17,12 +17,12 @@ conn = psycopg2.connect(database = "Hospital Database (Sadra Hosseini)",
 print('App connected to database!')
 cur = conn.cursor()
 
+
 wb_clinics = openpyxl.load_workbook('clinics.xlsx')
 sheet_clinics = wb_clinics.active
 
 clinics_dict = {}
 doctors_dict = {}
-
 
 ############################################################################################
 
@@ -33,6 +33,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     context.user_data['user_id'] = update.message.from_user.id
 
 async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:    
+
+    
     # Reading clinics.xlsx file
     for column in range(sheet_clinics.max_column):
         column_obj = sheet_clinics.cell(row = 1, column = column+1)
@@ -132,35 +134,54 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             await update.message.reply_text('❌  پیام اشتباه! متن ارسالی را مطابق نمونه داده شده وارد کنید.')                  
     
     elif context.user_data.get('level') == 4: # Level 4: Select the visit time
-        user_time = update.message.text
-        if int(user_time)-1 in range(0,len(context.user_data['user_choice_level_3'])):
-            await update.message.reply_text('''
-            📞🔢 جهت تایید نهایی نوبت، شماره تلفن و کدملی خود را با اعداد انگلیسی وارد کنید.
-            (فرمت ارسال: شماره تلفن/کدملی)
-            ''')
-            selected_time = context.user_data['user_choice_level_3'][int(user_time)-1]
-            context.user_data['level'] = 5
-            context.user_data['user_choice_level_4'] = selected_time
-        else:
-            await update.message.reply_text('❌ پیام اشتباه! لطفا در وارد کردن شماره نوبت موردنظر خود دقت فرمایید.') 
+        try:
+            user_time = int(update.message.text)-1     
+            if user_time in range(0,len(context.user_data['user_choice_level_3'])):
+                if context.user_data['user_choice_level_3'][user_time][6] > context.user_data['user_choice_level_3'][user_time][7]:
+                    await update.message.reply_text('''
+                    📞🔢 جهت تایید نهایی نوبت، شماره تلفن و کدملی خود را با اعداد انگلیسی وارد کنید.
+                    (فرمت ارسال: شماره تلفن/کدملی)
+                    ''')
+                    selected_time = context.user_data['user_choice_level_3'][user_time]
+                    context.user_data['level'] = 5
+                    context.user_data['user_choice_level_4'] = selected_time
+
+                else:
+                    await update.message.reply_text('☹️ متاسفانه نوبت موردنظر شما در حال حاضر پر است.') 
+            else:
+                await update.message.reply_text('❌ پیام اشتباه! لطفا در وارد کردن شماره نوبت موردنظر خود دقت فرمایید.') 
+        except:
+            await update.message.reply_text('❌ پیام اشتباه! لطفا یک شماره به عنوان نوبت موردنظرتان وارد کنید.') 
     
     elif context.user_data.get('level') == 5: # Level 5: Get personal info from user
         user_personal_info = update.message.text.split('/')
         if (str(user_personal_info[0])[0:2] == '09' and len(str(user_personal_info[0])) == 11) and len(str(user_personal_info[1])) == 10:
-            await update.message.reply_text('✅ درخواست شما جهت تهیه نوبت با این اطلاعات ثبت شد.\n\nکدملی: %s\nشماره تلفن: %s\nنام پزشک: %s\nکلینیک: %s\nروز هفته: %s\nساعت: %s\nتاریخ: %s' % (user_personal_info[1],user_personal_info[0],context.user_data['selected_doctor'],context.user_data['user_choice_level_2'],context.user_data['user_choice_level_4'][2],context.user_data['user_choice_level_4'][4],context.user_data['user_choice_level_4'][5]))
+            
+            # Combine the time and date of the selected time
+            combined = datetime.combine(context.user_data['user_choice_level_4'][5],context.user_data['user_choice_level_4'][4])
+            # Calculate the approximate hour of visitor attendance in hospital
+            visit_duration = 10
+            time_change = pd.DateOffset(minutes = context.user_data['user_choice_level_4'][7] * visit_duration)
+            approximate_visit_time = combined + time_change
+
+            await update.message.reply_text('✅ درخواست شما جهت تهیه نوبت با این اطلاعات ثبت شد.\n\nکدملی: %s\nشماره تلفن: %s\nنام پزشک: %s\nکلینیک: %s\nروز هفته: %s\nساعت تقریبی حضور: %s\nتاریخ: %s' % (user_personal_info[1],user_personal_info[0],context.user_data['selected_doctor'],context.user_data['user_choice_level_2'],context.user_data['user_choice_level_4'][2],str(approximate_visit_time).split(' ')[1],str(approximate_visit_time).split(' ')[0]))
             
             data_to_save = [update.message.from_user.id, # Telegram ID
                             user_personal_info[1], # National code
                             user_personal_info[0], # Phone number
                             context.user_data['selected_doctor'], # Selected doctor for visit
                             context.user_data['user_choice_level_2'], # Selected clinic(section)
-                            context.user_data['user_choice_level_4'][4], # Visit hour
+                            str(approximate_visit_time).split(' ')[1], # Visit hour
                             context.user_data['user_choice_level_4'][2], # Visit weekday
-                            context.user_data['user_choice_level_4'][5] # Visit date
+                            str(approximate_visit_time).split(' ')[0] # Visit date
                             ]
             
             sql_query = 'INSERT INTO public.visits (telegram_id, national_code, phone_number, doctor, section, visit_hour, visit_weekday, visit_date) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)'
             cur.execute(sql_query,data_to_save)
+            conn.commit()
+
+            # Changing visit_count column in times table
+            cur.execute(f'UPDATE public.times SET visit_count = visit_count+1 WHERE id={context.user_data['user_choice_level_4'][0]}')
             conn.commit()
 
             # Resetting variables
@@ -173,6 +194,10 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             context.user_data['selected_doctor'] = None
             context.user_data['times'] = None
             context.user_data['user_id'] = None
+
+            # Closing the cursur and connection
+            # cur.close()
+            # conn.close()
 
         else:
             await update.message.reply_text('❌ .پیام اشتباه! شماره تلفن باید با 09 شروع شود و کدملی هم می بایست 10 رقم باشد. همچنین اعداد باید انگلیسی وارد شده باشند.')
