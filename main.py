@@ -221,6 +221,19 @@ async def myvisits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     else:
         await update.message.reply_text('در حال حاضر شما نوبتی تهیه نکرده‌اید. ☹️')
 
+async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # Resetting variables
+    context.user_data['level'] = 0
+    context.user_data['user_choice_level_1'] = None
+    context.user_data['user_choice_level_2'] = None
+    context.user_data['user_choice_level_3'] = None
+    context.user_data['user_choice_level_4'] = None
+    context.user_data['user_doctors'] = None
+    context.user_data['selected_doctor'] = None
+    context.user_data['times'] = None
+    context.user_data['user_id'] = None
+
+    await update.message.reply_text('❎ فرآیند نوبت‌دهی لغو شد.')
 
 def main():
     application = Application.builder().token("7047332494:AAEsLSu5OJqCYQ1VBleQevBqEbOxQ_Sx_B0").build()
@@ -229,6 +242,7 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("visit", visit_command))
     application.add_handler(CommandHandler("myvisits", myvisits_command))
+    application.add_handler(CommandHandler("cancel", cancel_command))
 
     # Message Handlers
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, visit_process))
