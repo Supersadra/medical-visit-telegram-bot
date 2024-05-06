@@ -1,22 +1,13 @@
-from telegram import Update, InputFile
+from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, filters, ContextTypes, Application
 from telegram.ext.filters import MessageFilter
 import openpyxl
 import helper_funcs
 import psycopg2
-from datetime import datetime 
+from datetime import datetime
 import pandas as pd
 
 # VARIABLES ###############################################################################
-# Connect to database
-conn = psycopg2.connect(database = "Hospital Database (Sadra Hosseini)", 
-                        user = "postgres", 
-                        host= 'a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',
-                        password = "KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",
-                        port = 30500)
-print('App connected to database!')
-cur = conn.cursor()
-
 
 wb_clinics = openpyxl.load_workbook('clinics.xlsx')
 sheet_clinics = wb_clinics.active
@@ -28,12 +19,24 @@ doctors_dict = {}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text('''
-    با استفاده از دستور /visit می‌توانید به راحتی نوبت پزشک موردنظر خود را تهیه کنید.
+    مراجعه‌کننده عزیز، شما می‌توانید برای تهیه نوبت پزشک موردنظر خود از دستور /visit استفاده کنید.
+    
+    نکته قابل توجه: این ربات در حال حاضر صرفا برای تست اولیه است و به همین دلیل پایگاه داده مورد استفاده آن بصورت کامل تکمیل نشده است.
+    در حال حاضر تنها بخش فوق تخصص کلیه اطفال از کلینیک کودکان و اطفال برای تست قابل استفاده است.
     ''')
     context.user_data['user_id'] = update.message.from_user.id
 
 async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:    
-
+    # Connect to database
+    conn = psycopg2.connect(database = "Hospital Database (Sadra Hosseini)", 
+                            user = "postgres", 
+                            host= 'a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',
+                            password = "KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",
+                            port = 30500)
+    print('App connected to database!')
+    cur = conn.cursor()
+    context.user_data['cursur'] = cur
+    context.user_data['connection'] = conn
     
     # Reading clinics.xlsx file
     for column in range(sheet_clinics.max_column):
@@ -194,10 +197,12 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             context.user_data['selected_doctor'] = None
             context.user_data['times'] = None
             context.user_data['user_id'] = None
+            context.user_data['cursur'] = None
+            context.user_data['connection'] = None
 
             # Closing the cursur and connection
-            # cur.close()
-            # conn.close()
+            cur.close()
+            conn.close()
 
         else:
             await update.message.reply_text('❌ .پیام اشتباه! شماره تلفن باید با 09 شروع شود و کدملی هم می بایست 10 رقم باشد. همچنین اعداد باید انگلیسی وارد شده باشند.')
@@ -233,8 +238,19 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     context.user_data['times'] = None
     context.user_data['user_id'] = None
 
-    await update.message.reply_text('❎ فرآیند نوبت‌دهی لغو شد.')
 
+    try:
+        # Closing the cursur and connection
+        context.user_data['cursur'].close()
+        context.user_data['connection'].close()
+        context.user_data['cursur'] = None
+        context.user_data['connection'] = None
+        await update.message.reply_text('❎ فرآیند نوبت‌دهی لغو شد.')
+    
+    except:
+        await update.message.reply_text('☹️ فرآیند نوبت‌دهی‌ای آغاز نشده است که قصد لغو آن را دارید.')
+
+    
 def main():
     application = Application.builder().token("7047332494:AAEsLSu5OJqCYQ1VBleQevBqEbOxQ_Sx_B0").build()
 

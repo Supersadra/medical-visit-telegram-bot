@@ -2,7 +2,7 @@
 -- VALUES ('فاطمه بیرقدار','دوشنبه','صبح','10:30','2/10/1403',2,0)
 
 
-SELECT * FROM public.visits
+SELECT * FROM public.times
 
 -- DELETE FROM public.visits
 
