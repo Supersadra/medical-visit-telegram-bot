@@ -1,16 +1,12 @@
 from telegram import Update
 from telegram.ext import Updater, CommandHandler, MessageHandler, filters, ContextTypes, Application
 from telegram.ext.filters import MessageFilter
-import openpyxl
 import helper_funcs
 import psycopg2
 from datetime import datetime
 import pandas as pd
 
 # VARIABLES ###############################################################################
-
-wb_clinics = openpyxl.load_workbook('clinics.xlsx')
-sheet_clinics = wb_clinics.active
 
 clinics_dict = {}
 doctors_dict = {}
@@ -22,11 +18,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     مراجعه‌کننده عزیز، شما می‌توانید برای تهیه نوبت پزشک موردنظر خود از دستور /visit استفاده کنید.
     
     نکته قابل توجه: این ربات در حال حاضر صرفا برای تست اولیه است و به همین دلیل پایگاه داده مورد استفاده آن بصورت کامل تکمیل نشده است.
-    در حال حاضر تنها بخش فوق تخصص کلیه اطفال از کلینیک کودکان و اطفال برای تست قابل استفاده است.
+    در حال حاضر تنها بخشی از کلینیک‌ها برای تست قابل استفاده هستند.
     ''')
     context.user_data['user_id'] = update.message.from_user.id
 
 async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:    
+    ########################## UPDATE VARIABLES ##########################
     # Connect to database
     conn = psycopg2.connect(database = "Hospital Database (Sadra Hosseini)", 
                             user = "postgres", 
@@ -38,15 +35,18 @@ async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     context.user_data['cursur'] = cur
     context.user_data['connection'] = conn
     
-    # Reading clinics.xlsx file
-    for column in range(sheet_clinics.max_column):
-        column_obj = sheet_clinics.cell(row = 1, column = column+1)
-        clinics_dict[column_obj.value] = []
-        for row in range(sheet_clinics.max_row-1):
-            row_obj = sheet_clinics.cell(row = row+2, column = column+1)
-            if row_obj.value != None:
-                clinics_dict[column_obj.value].append(row_obj.value)
-    
+
+    # Get clinics table from the database
+    cur.execute('SELECT clinic FROM public.clinics')
+    clinics = cur.fetchall()
+    cur.execute('SELECT section FROM public.clinics')
+    sections = cur.fetchall()
+
+    for clinic in list(set(clinics)):
+        clinics_dict[clinic[0]] = []
+        for section in sections:
+            clinics_dict[clinic[0]].append(section[0])
+
     
     # Get doctors table from the database
     cur.execute('SELECT * FROM public.doctors')
@@ -180,12 +180,12 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                             ]
             
             sql_query = 'INSERT INTO public.visits (telegram_id, national_code, phone_number, doctor, section, visit_hour, visit_weekday, visit_date) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)'
-            cur.execute(sql_query,data_to_save)
-            conn.commit()
+            context.user_data['cursur'].execute(sql_query,data_to_save)
+            context.user_data['connection'].commit()
 
             # Changing visit_count column in times table
-            cur.execute(f'UPDATE public.times SET visit_count = visit_count+1 WHERE id={context.user_data['user_choice_level_4'][0]}')
-            conn.commit()
+            context.user_data['cursur'].execute(f'UPDATE public.times SET visit_count = visit_count+1 WHERE id={context.user_data['user_choice_level_4'][0]}')
+            context.user_data['connection'].commit()
 
             # Resetting variables
             context.user_data['level'] = 0
@@ -201,8 +201,8 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             context.user_data['connection'] = None
 
             # Closing the cursur and connection
-            cur.close()
-            conn.close()
+            context.user_data['cursur'].close()
+            context.user_data['connection'].close()
 
         else:
             await update.message.reply_text('❌ .پیام اشتباه! شماره تلفن باید با 09 شروع شود و کدملی هم می بایست 10 رقم باشد. همچنین اعداد باید انگلیسی وارد شده باشند.')
@@ -211,6 +211,14 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 
 async def myvisits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text('شما با استفاده از این دستور می‌توانید تمام نوبت‌های تهیه شده توسط این اکانت تلگرام را مشاهده کنید.')
+    # Connect to database
+    conn = psycopg2.connect(database = "Hospital Database (Sadra Hosseini)", 
+                            user = "postgres", 
+                            host= 'a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',
+                            password = "KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",
+                            port = 30500)
+    print('App connected to database!')
+    cur = conn.cursor()
     
     cur.execute('SELECT * FROM public.visits')
     visits = cur.fetchall()
@@ -225,6 +233,12 @@ async def myvisits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         await update.message.reply_text('💠  نوبت‌های تهیه شده توسط این اکانت تلگرام:\n\n' + helper_funcs.show_myvisits_results(user_visits))
     else:
         await update.message.reply_text('در حال حاضر شما نوبتی تهیه نکرده‌اید. ☹️')
+
+    # Closing the cursur and connection
+    cur.close()
+    conn.close()
+
+        
 
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     # Resetting variables
