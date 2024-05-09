@@ -19,12 +19,16 @@ def show_times_results(times_lst):
         messages.append(message)
     return '\n\n'.join(messages)
 
-def show_myvisits_results(visits):
+def show_myvisits_results(visits,ordered=False):
     messages = []
     for visit in visits:
-        message = f"🟢  کدملی: {visit[2]}\nشماره تلفن: {visit[3]}\nنام پزشک: {visit[4]}\nکلینیک: {visit[5]}\nروز هفته: {visit[7]}\nساعت: {visit[6]}\nتاریخ: {visit[8]}"
+        if ordered:
+            identifier = visits.index(visit)+1
+        else: 
+            identifier = '🟢'
+        message = f"{identifier}.  کدملی: {visit[2]}\nشماره تلفن: {visit[3]}\nنام پزشک: {visit[4]}\nکلینیک: {visit[5]}\nروز هفته: {visit[7]}\nساعت: {visit[6]}\nتاریخ: {visit[8]}\n{'-'*100}"
         messages.append(message)
-    return '\n\n'.join(messages)
+    return '\n'.join(messages)
 
 def ordered_text(text_lst):
     ordered_text = []

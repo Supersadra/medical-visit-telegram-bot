@@ -207,10 +207,10 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         else:
             await update.message.reply_text('❌ .پیام اشتباه! شماره تلفن باید با 09 شروع شود و کدملی هم می بایست 10 رقم باشد. همچنین اعداد باید انگلیسی وارد شده باشند.')
     else:
-        await update.message.reply_text('❌ پیام اشتباه! ابتدا برای تهیه نوبت از دستور /visit  استفاده کنید.')
+        await update.message.reply_text('❌ پیام اشتباه! ابتدا از یک دستور در منو قرار داده شده استفاده کنید.')
 
 async def myvisits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    await update.message.reply_text('شما با استفاده از این دستور می‌توانید تمام نوبت‌های تهیه شده توسط این اکانت تلگرام را مشاهده کنید.')
+    await update.message.reply_text('🔵 شما با استفاده از این دستور می‌توانید تمام نوبت‌های تهیه شده توسط این اکانت تلگرام را مشاهده کنید.')
     # Connect to database
     conn = psycopg2.connect(database = "Hospital Database (Sadra Hosseini)", 
                             user = "postgres", 
@@ -232,7 +232,7 @@ async def myvisits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if len(user_visits) != 0:
         await update.message.reply_text('💠  نوبت‌های تهیه شده توسط این اکانت تلگرام:\n\n' + helper_funcs.show_myvisits_results(user_visits))
     else:
-        await update.message.reply_text('در حال حاضر شما نوبتی تهیه نکرده‌اید. ☹️')
+        await update.message.reply_text('در حال حاضر نوبتی تهیه نکرده‌اید. ☹️')
 
     # Closing the cursur and connection
     cur.close()
@@ -264,7 +264,49 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     except:
         await update.message.reply_text('☹️ فرآیند نوبت‌دهی‌ای آغاز نشده است که قصد لغو آن را دارید.')
 
+
+
+# async def removevisit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+#     await update.message.reply_text('🔵 با استفاده از این دستور می‌توانید نوبت موردنظر خود را حذف کنید.')
+#     # Connect to database
+#     conn = psycopg2.connect(database = "Hospital Database (Sadra Hosseini)", 
+#                             user = "postgres", 
+#                             host= 'a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',
+#                             password = "KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",
+#                             port = 30500)
+#     print('App connected to database!')
+#     cur = conn.cursor()
     
+#     cur.execute('SELECT * FROM public.visits')
+#     visits = cur.fetchall()
+#     user_id = update.message.from_user.id
+
+#     user_visits = []
+#     for visit in visits:
+#         if user_id == visit[1]:
+#             user_visits.append(visit)
+    
+#     if len(user_visits) != 0:
+#         await update.message.reply_text('💠  نوبت‌های تهیه شده توسط این اکانت تلگرام:\n\n' + helper_funcs.show_myvisits_results(user_visits,True) + '\n\n✅ شماره نوبت موردنظر خود را جهت لغو کردن وارد کنید.')
+#         context.user_data['remove_visit'] = True
+#         context.user_data['user_visits'] = user_visits
+#     else:
+#         await update.message.reply_text('در حال حاضر نوبتی تهیه نکرده‌اید. ☹️')
+    
+#     # Closing the cursur and connection
+#     cur.close()
+#     conn.close()
+
+
+# async def remove_visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+#     if context.user_data.get('remove_visit'):
+#         selected_visit = context.user_data['user_visits'][int(update.message.text)-1]
+        
+#         context.user_data['remove_visit'] = None
+#         context.user_data['user_visits'] = None
+
+    
+ 
 def main():
     application = Application.builder().token("7047332494:AAEsLSu5OJqCYQ1VBleQevBqEbOxQ_Sx_B0").build()
 
@@ -273,9 +315,11 @@ def main():
     application.add_handler(CommandHandler("visit", visit_command))
     application.add_handler(CommandHandler("myvisits", myvisits_command))
     application.add_handler(CommandHandler("cancel", cancel_command))
+    # application.add_handler(CommandHandler("removevisit", removevisit_command))
 
     # Message Handlers
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, visit_process))
+    # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, remove_visit_process))
     
     
     application.run_polling(allowed_updates=Update.ALL_TYPES)
