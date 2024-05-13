@@ -25,17 +25,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:    
     ########################## UPDATE VARIABLES ##########################
     # Connect to database
-    conn = psycopg2.connect(database = "Hospital Database (Sadra Hosseini)", 
-                            user = "postgres", 
-                            host= 'a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',
-                            password = "KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",
-                            port = 30500)
+    conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
     print('App connected to database!')
     cur = conn.cursor()
     context.user_data['cursur'] = cur
     context.user_data['connection'] = conn
     
-
     # Get clinics table from the database
     cur.execute('SELECT clinic FROM public.clinics')
     clinics = cur.fetchall()
@@ -176,10 +171,11 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
                             context.user_data['user_choice_level_2'], # Selected clinic(section)
                             str(approximate_visit_time).split(' ')[1], # Visit hour
                             context.user_data['user_choice_level_4'][2], # Visit weekday
-                            str(approximate_visit_time).split(' ')[0] # Visit date
+                            str(approximate_visit_time).split(' ')[0], # Visit date
+                            context.user_data['user_choice_level_4'][0] # Time ID
                             ]
             
-            sql_query = 'INSERT INTO public.visits (telegram_id, national_code, phone_number, doctor, section, visit_hour, visit_weekday, visit_date) VALUES(%s,%s,%s,%s,%s,%s,%s,%s)'
+            sql_query = 'INSERT INTO public.visits (telegram_id, national_code, phone_number, doctor, section, visit_hour, visit_weekday, visit_date, time_id) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)'
             context.user_data['cursur'].execute(sql_query,data_to_save)
             context.user_data['connection'].commit()
 
@@ -187,22 +183,11 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
             context.user_data['cursur'].execute(f'UPDATE public.times SET visit_count = visit_count+1 WHERE id={context.user_data['user_choice_level_4'][0]}')
             context.user_data['connection'].commit()
 
-            # Resetting variables
-            context.user_data['level'] = 0
-            context.user_data['user_choice_level_1'] = None
-            context.user_data['user_choice_level_2'] = None
-            context.user_data['user_choice_level_3'] = None
-            context.user_data['user_choice_level_4'] = None
-            context.user_data['user_doctors'] = None
-            context.user_data['selected_doctor'] = None
-            context.user_data['times'] = None
-            context.user_data['user_id'] = None
-            context.user_data['cursur'] = None
-            context.user_data['connection'] = None
-
             # Closing the cursur and connection
             context.user_data['cursur'].close()
             context.user_data['connection'].close()
+
+            context.user_data.clear()
 
         else:
             await update.message.reply_text('❌ .پیام اشتباه! شماره تلفن باید با 09 شروع شود و کدملی هم می بایست 10 رقم باشد. همچنین اعداد باید انگلیسی وارد شده باشند.')
@@ -212,11 +197,7 @@ async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
 async def myvisits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text('🔵 شما با استفاده از این دستور می‌توانید تمام نوبت‌های تهیه شده توسط این اکانت تلگرام را مشاهده کنید.')
     # Connect to database
-    conn = psycopg2.connect(database = "Hospital Database (Sadra Hosseini)", 
-                            user = "postgres", 
-                            host= 'a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',
-                            password = "KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",
-                            port = 30500)
+    conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
     print('App connected to database!')
     cur = conn.cursor()
     
@@ -239,26 +220,12 @@ async def myvisits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     conn.close()
 
         
-
 async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    # Resetting variables
-    context.user_data['level'] = 0
-    context.user_data['user_choice_level_1'] = None
-    context.user_data['user_choice_level_2'] = None
-    context.user_data['user_choice_level_3'] = None
-    context.user_data['user_choice_level_4'] = None
-    context.user_data['user_doctors'] = None
-    context.user_data['selected_doctor'] = None
-    context.user_data['times'] = None
-    context.user_data['user_id'] = None
-
-
     try:
-        # Closing the cursur and connection
+        # Closing the cursur and connection and resetting variables
         context.user_data['cursur'].close()
         context.user_data['connection'].close()
-        context.user_data['cursur'] = None
-        context.user_data['connection'] = None
+        context.user_data.clear()
         await update.message.reply_text('❎ فرآیند نوبت‌دهی لغو شد.')
     
     except:
@@ -302,11 +269,18 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 #     if context.user_data.get('remove_visit'):
 #         selected_visit = context.user_data['user_visits'][int(update.message.text)-1]
         
-#         context.user_data['remove_visit'] = None
-#         context.user_data['user_visits'] = None
+#         conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
+#         cur.execute(f'DELETE FROM public.visits WHERE id = {selected_visit[0]}')
+#         cur.execute(f'UPDATE public.times SET visit_count -= 1 WHERE id = {selected_visit[9]}')
+#         await update.message.reply_text('❎ نوبت موردنظر شما با موفقیت لغو شد.')
+
+#         cur.close()
+#         conn.close()
+
+#         context.user_data.clear()
 
     
- 
+
 def main():
     application = Application.builder().token("7047332494:AAEsLSu5OJqCYQ1VBleQevBqEbOxQ_Sx_B0").build()
 

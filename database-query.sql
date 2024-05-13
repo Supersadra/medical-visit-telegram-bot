@@ -9,8 +9,8 @@
 
 SELECT * FROM public.times
 
--- DELETE FROM public.clinics WHERE section = 'فوق تخصص خون اطفال'
+-- DELETE FROM public.visits
 
 -- UPDATE public.times
--- SET capacity = 20,visit_count = 0
--- WHERE id=6
+-- SET visit_count = 0
+-- WHERE visit_count != 0
