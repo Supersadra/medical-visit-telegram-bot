@@ -227,25 +227,28 @@ async def messages_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     
     # Remove visit command for cancelling visits
     elif context.user_data.get('remove_visit'):
-        conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
         entered_indexes = str(update.message.text).split('/')
-        
-        for entered_index in entered_indexes:
-            selected_visit = context.user_data['user_visits'][int(entered_index)-1]
-            
+        valid_indexes = [str(i+1) for i in range(len(context.user_data['user_visits']))]
+
+        if set(entered_indexes).issubset(set(valid_indexes)):
             conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
-            cur = conn.cursor()
-            cur.execute(f'DELETE FROM public.visits WHERE id = {selected_visit[0]}')
-            cur.execute(f'UPDATE public.times SET visit_count = visit_count - 1 WHERE id = {selected_visit[9]}')
-            conn.commit()
             
-        await update.message.reply_text('❎ نوبت موردنظر شما با موفقیت لغو شد.')
-
-        # Closing the cursur and connection
-        cur.close()
-        conn.close()
-
-        context.user_data.clear()
+            for entered_index in entered_indexes:
+                selected_visit = context.user_data['user_visits'][int(entered_index)-1]
+                
+                cur = conn.cursor()
+                cur.execute(f'DELETE FROM public.visits WHERE id = {selected_visit[0]}')
+                cur.execute(f'UPDATE public.times SET visit_count = visit_count - 1 WHERE id = {selected_visit[9]}')
+                conn.commit()
+            
+            # Closing the cursur and connection + Clearing user data
+            cur.close()
+            conn.close()
+            context.user_data.clear()
+            
+            await update.message.reply_text('❎ نوبت موردنظر شما با موفقیت لغو شد.')
+        else:
+            await update.message.reply_text('❌ پیام اشتباه! شماره نوبت وارد شده در فهرست نوبت‌های تهیه شده موجود نمی‌باشد یا محتوای خواسته شده را ارسال نکرده‌اید.')        
     
     else:
         await update.message.reply_text('❌ پیام اشتباه! ابتدا از یک دستور در منو قرار داده شده استفاده کنید.')
