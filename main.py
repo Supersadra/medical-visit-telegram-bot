@@ -93,7 +93,7 @@ async def removevisit_command(update: Update, context: ContextTypes.DEFAULT_TYPE
             user_visits.append(visit)
     
     if len(user_visits) != 0:
-        await update.message.reply_text('💠  نوبت‌های تهیه شده توسط این اکانت تلگرام:\n\n' + helper_funcs.show_myvisits_results(user_visits,True) + '\n\n✅ شماره نوبت موردنظر خود را جهت لغو کردن وارد کنید.')
+        await update.message.reply_text('💠  نوبت‌های تهیه شده توسط این اکانت تلگرام:\n\n' + helper_funcs.show_myvisits_results(user_visits,True) + '\n\n✅ شماره نوبت یا نوبت های موردنظر خود را جهت لغو کردن وارد کنید. اگر قصد حذف چندین نوبت را دارید، شماره آنها را با اسلش جدا کنید.')
         context.user_data['remove_visit'] = True
         context.user_data['user_visits'] = user_visits
     else:
@@ -227,14 +227,18 @@ async def messages_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     
     # Remove visit command for cancelling visits
     elif context.user_data.get('remove_visit'):
-        selected_visit = context.user_data['user_visits'][int(update.message.text)-1]
-        
         conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
-        cur = conn.cursor()
-        cur.execute(f'DELETE FROM public.visits WHERE id = {selected_visit[0]}')
-        cur.execute(f'UPDATE public.times SET visit_count = visit_count - 1 WHERE id = {selected_visit[9]}')
-        conn.commit()
+        entered_indexes = str(update.message.text).split('/')
         
+        for entered_index in entered_indexes:
+            selected_visit = context.user_data['user_visits'][int(entered_index)-1]
+            
+            conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
+            cur = conn.cursor()
+            cur.execute(f'DELETE FROM public.visits WHERE id = {selected_visit[0]}')
+            cur.execute(f'UPDATE public.times SET visit_count = visit_count - 1 WHERE id = {selected_visit[9]}')
+            conn.commit()
+            
         await update.message.reply_text('❎ نوبت موردنظر شما با موفقیت لغو شد.')
 
         # Closing the cursur and connection
