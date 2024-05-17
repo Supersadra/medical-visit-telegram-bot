@@ -1,4 +1,7 @@
 import psycopg2
+import pandas as pd
+from datetime import datetime
+
 def find_doctors(section,doctors_dict):
     doctors_list = []
     for doctor, details in doctors_dict.items():
@@ -16,7 +19,10 @@ def show_doctor_results(doctors,doctors_dict):
 def show_times_results(times_lst):
     messages = []
     for time in times_lst:
-        message = f"{times_lst.index(time)+1}. روز هفته: {time[2]}\nشیفت: {time[3]}\nساعت: {time[4]}\nتاریخ: {time[5]}"
+        combined = datetime.combine(time[5],time[4])
+        approximate_visit_time = approx_hour(time[7],combined)
+        
+        message = f"{times_lst.index(time)+1}. روز هفته: {time[2]}\nشیفت: {time[3]}\nساعت: {str(approximate_visit_time).split(' ')[1]}\nتاریخ: {time[5]}"
         messages.append(message)
     return '\n\n'.join(messages)
 
@@ -46,3 +52,9 @@ def connect_db(database_name,user,host,password,port):
                             password = password,
                             port = port)
     return conn
+
+def approx_hour(visit_count,primary_hour):
+    duration = 10
+    time_change = pd.DateOffset(minutes = visit_count * duration)
+    approximate_visit_time = primary_hour + time_change
+    return approximate_visit_time

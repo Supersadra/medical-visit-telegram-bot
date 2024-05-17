@@ -190,9 +190,7 @@ async def messages_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -
                 # Combine the time and date of the selected time
                 combined = datetime.combine(context.user_data['user_choice_level_4'][5],context.user_data['user_choice_level_4'][4])
                 # Calculate the approximate hour of visitor attendance in hospital
-                visit_duration = 10
-                time_change = pd.DateOffset(minutes = context.user_data['user_choice_level_4'][7] * visit_duration)
-                approximate_visit_time = combined + time_change
+                approximate_visit_time = helper_funcs.approx_hour(context.user_data['user_choice_level_4'][7],combined)
 
                 await update.message.reply_text('✅ درخواست شما جهت تهیه نوبت با این اطلاعات ثبت شد.\n\nکدملی: %s\nشماره تلفن: %s\nنام پزشک: %s\nکلینیک: %s\nروز هفته: %s\nساعت تقریبی حضور: %s\nتاریخ: %s' % (user_personal_info[1],user_personal_info[0],context.user_data['selected_doctor'],context.user_data['user_choice_level_2'],context.user_data['user_choice_level_4'][2],str(approximate_visit_time).split(' ')[1],str(approximate_visit_time).split(' ')[0]))
                 
