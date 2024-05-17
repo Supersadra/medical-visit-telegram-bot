@@ -71,126 +71,178 @@ async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
     
     
     await update.message.reply_text('🩺 فهرست کلینیک‌ها' + f'\n\n{'\n'.join(helper_funcs.ordered_text(list(clinics_dict.keys())))}\n\n' + '✅ شماره کلینیک موردنظر خود را وارد کنید.')
-
+    
+    context.user_data['add_visit'] = True
     context.user_data['level'] = 1
+
+
+async def removevisit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text('🔵 با استفاده از این دستور می‌توانید نوبت موردنظر خود را حذف کنید.')
+    # Connect to database
+    conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
+    print('App connected to database!')
+    cur = conn.cursor()
     
-async def visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    if context.user_data.get('level') == 1: # Level 1: Select the clinic
-        try:
-            user_clinic = int(update.message.text)
+    cur.execute('SELECT * FROM public.visits')
+    visits = cur.fetchall()
+    user_id = update.message.from_user.id
 
-            if user_clinic-1 in range(len(clinics_dict.keys())):
-                selected_clinic = list(clinics_dict.keys())[user_clinic-1]
-                await update.message.reply_text(f'💠  بخش‌های {selected_clinic}\n\n' + '\n'.join(helper_funcs.ordered_text(clinics_dict[selected_clinic])) + '\n\n ✅ شماره بخش موردنظر خود را وارد کنید.')
-                context.user_data['level'] = 2
-                context.user_data['user_choice_level_1'] = selected_clinic
-            else:
-                await update.message.reply_text('❌ پیام اشتباه! لطفا در وارد کردن شماره کلینیک موردنظر دقت فرمایید.') 
-        
-        except:
-            await update.message.reply_text('❌ پیام اشتباه! لطفا شماره کلینیک موردنظر خود را وارد کنید.')
-
-    elif context.user_data.get('level') == 2: # Level 2: Select the section of clinic
-        try:
-            user_section = int(update.message.text)
-
-            if user_section-1 in range(len(clinics_dict[context.user_data['user_choice_level_1']])):
-                selected_section = clinics_dict[context.user_data['user_choice_level_1']][user_section-1]
-                doctors = helper_funcs.find_doctors(selected_section,doctors_dict)
-                await update.message.reply_text('👨‍⚕️👩‍⚕️  فهرست پزشکان\n\n' + helper_funcs.show_doctor_results(doctors,doctors_dict) + '\n\n ✅ شماره پزشک و شیفت موردنظر خود را مطابق نمونه وارد کنید.(نمونه متن ارسالی: 2/صبح)')
-                context.user_data['level'] = 3
-                context.user_data['user_choice_level_2'] = selected_section
-                context.user_data['user_doctors'] = doctors
-            else:
-                await update.message.reply_text('❌ پیام اشتباه! لطفا در وارد کردن شماره بخش موردنظر دقت فرمایید.') 
-        
-        except:
-            await update.message.reply_text('❌ پیام اشتباه! لطفا شماره بخش موردنظر خود را وارد کنید.')
+    user_visits = []
+    for visit in visits:
+        if user_id == visit[1]:
+            user_visits.append(visit)
     
-    elif context.user_data.get('level') == 3: # Level 3: Select the doctor
-        user_doctorandshift = update.message.text.split('/')
-        try:
-            if int(user_doctorandshift[0])-1 in range(len(context.user_data['user_doctors'])):
-                selected_doctor = context.user_data['user_doctors'][int(user_doctorandshift[0])-1]
+    if len(user_visits) != 0:
+        await update.message.reply_text('💠  نوبت‌های تهیه شده توسط این اکانت تلگرام:\n\n' + helper_funcs.show_myvisits_results(user_visits,True) + '\n\n✅ شماره نوبت موردنظر خود را جهت لغو کردن وارد کنید.')
+        context.user_data['remove_visit'] = True
+        context.user_data['user_visits'] = user_visits
+    else:
+        await update.message.reply_text('در حال حاضر نوبتی تهیه نکرده‌اید. ☹️')
+    
+    # Closing the cursur and connection
+    cur.close()
+    conn.close()    
 
-                if user_doctorandshift[1] in doctors_dict[selected_doctor][3]:
-                    times = []
-                    for item in context.user_data['times']:
-                        if (list(item)[1] == selected_doctor) and (list(item)[3] == user_doctorandshift[1]):
-                            times.append(list(item))
-                    await update.message.reply_text('💠 نوبت های موجود\n\n'+ helper_funcs.show_times_results(times) +'\n\n✅ شماره نوبت مورد نظر خود را وارد کنید.' )
-                    context.user_data['level'] = 4
-                    context.user_data['user_choice_level_3'] = times
-                    context.user_data['selected_doctor'] = selected_doctor
+
+async def messages_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    # Visit command for getting visit times
+    if context.user_data.get('add_visit'):
+        if context.user_data.get('level') == 1: # Level 1: Select the clinic
+            try:
+                user_clinic = int(update.message.text)
+
+                if user_clinic-1 in range(len(clinics_dict.keys())):
+                    selected_clinic = list(clinics_dict.keys())[user_clinic-1]
+                    await update.message.reply_text(f'💠  بخش‌های {selected_clinic}\n\n' + '\n'.join(helper_funcs.ordered_text(clinics_dict[selected_clinic])) + '\n\n ✅ شماره بخش موردنظر خود را وارد کنید.')
+                    context.user_data['level'] = 2
+                    context.user_data['user_choice_level_1'] = selected_clinic
                 else:
-                    await update.message.reply_text('☹️ نوبت موردنظر شما برای پزشک انتخاب شده موجود نمی‌باشد.')
+                    await update.message.reply_text('❌ پیام اشتباه! لطفا در وارد کردن شماره کلینیک موردنظر دقت فرمایید.') 
             
-            else:
-                await update.message.reply_text('❌ پیام اشتباه! لطفا در تایپ کردن شماره پزشک موردنظرتان دقت فرمایید.')
-        
-        except:
-            await update.message.reply_text('❌  پیام اشتباه! متن ارسالی را مطابق نمونه داده شده وارد کنید.')                  
-    
-    elif context.user_data.get('level') == 4: # Level 4: Select the visit time
-        try:
-            user_time = int(update.message.text)-1     
-            if user_time in range(0,len(context.user_data['user_choice_level_3'])):
-                if context.user_data['user_choice_level_3'][user_time][6] > context.user_data['user_choice_level_3'][user_time][7]:
-                    await update.message.reply_text('''
-                    📞🔢 جهت تایید نهایی نوبت، شماره تلفن و کدملی خود را با اعداد انگلیسی وارد کنید.
-                    (فرمت ارسال: شماره تلفن/کدملی)
-                    ''')
-                    selected_time = context.user_data['user_choice_level_3'][user_time]
-                    context.user_data['level'] = 5
-                    context.user_data['user_choice_level_4'] = selected_time
+            except:
+                await update.message.reply_text('❌ پیام اشتباه! لطفا شماره کلینیک موردنظر خود را وارد کنید.')
 
+        elif context.user_data.get('level') == 2: # Level 2: Select the section of clinic
+            try:
+                user_section = int(update.message.text)
+
+                if user_section-1 in range(len(clinics_dict[context.user_data['user_choice_level_1']])):
+                    selected_section = clinics_dict[context.user_data['user_choice_level_1']][user_section-1]
+                    doctors = helper_funcs.find_doctors(selected_section,doctors_dict)
+                    await update.message.reply_text('👨‍⚕️👩‍⚕️  فهرست پزشکان\n\n' + helper_funcs.show_doctor_results(doctors,doctors_dict) + '\n\n ✅ شماره پزشک و شیفت موردنظر خود را مطابق نمونه وارد کنید.(نمونه متن ارسالی: 2/صبح)')
+                    context.user_data['level'] = 3
+                    context.user_data['user_choice_level_2'] = selected_section
+                    context.user_data['user_doctors'] = doctors
                 else:
-                    await update.message.reply_text('☹️ متاسفانه نوبت موردنظر شما در حال حاضر پر است.') 
+                    await update.message.reply_text('❌ پیام اشتباه! لطفا در وارد کردن شماره بخش موردنظر دقت فرمایید.') 
+            
+            except:
+                await update.message.reply_text('❌ پیام اشتباه! لطفا شماره بخش موردنظر خود را وارد کنید.')
+        
+        elif context.user_data.get('level') == 3: # Level 3: Select the doctor
+            user_doctorandshift = update.message.text.split('/')
+            try:
+                if int(user_doctorandshift[0])-1 in range(len(context.user_data['user_doctors'])):
+                    selected_doctor = context.user_data['user_doctors'][int(user_doctorandshift[0])-1]
+
+                    if user_doctorandshift[1] in doctors_dict[selected_doctor][3]:
+                        times = []
+                        for item in context.user_data['times']:
+                            if (list(item)[1] == selected_doctor) and (list(item)[3] == user_doctorandshift[1]):
+                                times.append(list(item))
+                        await update.message.reply_text('💠 نوبت های موجود\n\n'+ helper_funcs.show_times_results(times) +'\n\n✅ شماره نوبت مورد نظر خود را وارد کنید.' )
+                        context.user_data['level'] = 4
+                        context.user_data['user_choice_level_3'] = times
+                        context.user_data['selected_doctor'] = selected_doctor
+                    else:
+                        await update.message.reply_text('☹️ نوبت موردنظر شما برای پزشک انتخاب شده موجود نمی‌باشد.')
+                
+                else:
+                    await update.message.reply_text('❌ پیام اشتباه! لطفا در تایپ کردن شماره پزشک موردنظرتان دقت فرمایید.')
+            
+            except:
+                await update.message.reply_text('❌  پیام اشتباه! متن ارسالی را مطابق نمونه داده شده وارد کنید.')                  
+        
+        elif context.user_data.get('level') == 4: # Level 4: Select the visit time
+            try:
+                user_time = int(update.message.text)-1     
+                if user_time in range(0,len(context.user_data['user_choice_level_3'])):
+                    if context.user_data['user_choice_level_3'][user_time][6] > context.user_data['user_choice_level_3'][user_time][7]:
+                        await update.message.reply_text('''
+                        📞🔢 جهت تایید نهایی نوبت، شماره تلفن و کدملی خود را با اعداد انگلیسی وارد کنید.
+                        (فرمت ارسال: شماره تلفن/کدملی)
+                        ''')
+                        selected_time = context.user_data['user_choice_level_3'][user_time]
+                        context.user_data['level'] = 5
+                        context.user_data['user_choice_level_4'] = selected_time
+
+                    else:
+                        await update.message.reply_text('☹️ متاسفانه نوبت موردنظر شما در حال حاضر پر است.') 
+                else:
+                    await update.message.reply_text('❌ پیام اشتباه! لطفا در وارد کردن شماره نوبت موردنظر خود دقت فرمایید.') 
+            except:
+                await update.message.reply_text('❌ پیام اشتباه! لطفا یک شماره به عنوان نوبت موردنظرتان وارد کنید.') 
+        
+        elif context.user_data.get('level') == 5: # Level 5: Get personal info from user
+            user_personal_info = update.message.text.split('/')
+            if (str(user_personal_info[0])[0:2] == '09' and len(str(user_personal_info[0])) == 11) and len(str(user_personal_info[1])) == 10:
+                
+                # Combine the time and date of the selected time
+                combined = datetime.combine(context.user_data['user_choice_level_4'][5],context.user_data['user_choice_level_4'][4])
+                # Calculate the approximate hour of visitor attendance in hospital
+                visit_duration = 10
+                time_change = pd.DateOffset(minutes = context.user_data['user_choice_level_4'][7] * visit_duration)
+                approximate_visit_time = combined + time_change
+
+                await update.message.reply_text('✅ درخواست شما جهت تهیه نوبت با این اطلاعات ثبت شد.\n\nکدملی: %s\nشماره تلفن: %s\nنام پزشک: %s\nکلینیک: %s\nروز هفته: %s\nساعت تقریبی حضور: %s\nتاریخ: %s' % (user_personal_info[1],user_personal_info[0],context.user_data['selected_doctor'],context.user_data['user_choice_level_2'],context.user_data['user_choice_level_4'][2],str(approximate_visit_time).split(' ')[1],str(approximate_visit_time).split(' ')[0]))
+                
+                data_to_save = [update.message.from_user.id, # Telegram ID
+                                user_personal_info[1], # National code
+                                user_personal_info[0], # Phone number
+                                context.user_data['selected_doctor'], # Selected doctor for visit
+                                context.user_data['user_choice_level_2'], # Selected clinic(section)
+                                str(approximate_visit_time).split(' ')[1], # Visit hour
+                                context.user_data['user_choice_level_4'][2], # Visit weekday
+                                str(approximate_visit_time).split(' ')[0], # Visit date
+                                context.user_data['user_choice_level_4'][0] # Time ID
+                                ]
+                
+                sql_query = 'INSERT INTO public.visits (telegram_id, national_code, phone_number, doctor, section, visit_hour, visit_weekday, visit_date, time_id) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)'
+                context.user_data['cursur'].execute(sql_query,data_to_save)
+                
+                # Changing visit_count column in times table
+                context.user_data['cursur'].execute(f'UPDATE public.times SET visit_count = visit_count+1 WHERE id={context.user_data['user_choice_level_4'][0]}')
+                
+                # Commit changes
+                context.user_data['connection'].commit()
+
+                # Closing the cursur and connection
+                context.user_data['cursur'].close()
+                context.user_data['connection'].close()
+
+                context.user_data.clear()
+
             else:
-                await update.message.reply_text('❌ پیام اشتباه! لطفا در وارد کردن شماره نوبت موردنظر خود دقت فرمایید.') 
-        except:
-            await update.message.reply_text('❌ پیام اشتباه! لطفا یک شماره به عنوان نوبت موردنظرتان وارد کنید.') 
+                await update.message.reply_text('❌ .پیام اشتباه! شماره تلفن باید با 09 شروع شود و کدملی هم می بایست 10 رقم باشد. همچنین اعداد باید انگلیسی وارد شده باشند.')
     
-    elif context.user_data.get('level') == 5: # Level 5: Get personal info from user
-        user_personal_info = update.message.text.split('/')
-        if (str(user_personal_info[0])[0:2] == '09' and len(str(user_personal_info[0])) == 11) and len(str(user_personal_info[1])) == 10:
-            
-            # Combine the time and date of the selected time
-            combined = datetime.combine(context.user_data['user_choice_level_4'][5],context.user_data['user_choice_level_4'][4])
-            # Calculate the approximate hour of visitor attendance in hospital
-            visit_duration = 10
-            time_change = pd.DateOffset(minutes = context.user_data['user_choice_level_4'][7] * visit_duration)
-            approximate_visit_time = combined + time_change
+    # Remove visit command for cancelling visits
+    elif context.user_data.get('remove_visit'):
+        selected_visit = context.user_data['user_visits'][int(update.message.text)-1]
+        
+        conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
+        cur = conn.cursor()
+        cur.execute(f'DELETE FROM public.visits WHERE id = {selected_visit[0]}')
+        cur.execute(f'UPDATE public.times SET visit_count = visit_count - 1 WHERE id = {selected_visit[9]}')
+        conn.commit()
+        
+        await update.message.reply_text('❎ نوبت موردنظر شما با موفقیت لغو شد.')
 
-            await update.message.reply_text('✅ درخواست شما جهت تهیه نوبت با این اطلاعات ثبت شد.\n\nکدملی: %s\nشماره تلفن: %s\nنام پزشک: %s\nکلینیک: %s\nروز هفته: %s\nساعت تقریبی حضور: %s\nتاریخ: %s' % (user_personal_info[1],user_personal_info[0],context.user_data['selected_doctor'],context.user_data['user_choice_level_2'],context.user_data['user_choice_level_4'][2],str(approximate_visit_time).split(' ')[1],str(approximate_visit_time).split(' ')[0]))
-            
-            data_to_save = [update.message.from_user.id, # Telegram ID
-                            user_personal_info[1], # National code
-                            user_personal_info[0], # Phone number
-                            context.user_data['selected_doctor'], # Selected doctor for visit
-                            context.user_data['user_choice_level_2'], # Selected clinic(section)
-                            str(approximate_visit_time).split(' ')[1], # Visit hour
-                            context.user_data['user_choice_level_4'][2], # Visit weekday
-                            str(approximate_visit_time).split(' ')[0], # Visit date
-                            context.user_data['user_choice_level_4'][0] # Time ID
-                            ]
-            
-            sql_query = 'INSERT INTO public.visits (telegram_id, national_code, phone_number, doctor, section, visit_hour, visit_weekday, visit_date, time_id) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s)'
-            context.user_data['cursur'].execute(sql_query,data_to_save)
-            context.user_data['connection'].commit()
+        # Closing the cursur and connection
+        cur.close()
+        conn.close()
 
-            # Changing visit_count column in times table
-            context.user_data['cursur'].execute(f'UPDATE public.times SET visit_count = visit_count+1 WHERE id={context.user_data['user_choice_level_4'][0]}')
-            context.user_data['connection'].commit()
-
-            # Closing the cursur and connection
-            context.user_data['cursur'].close()
-            context.user_data['connection'].close()
-
-            context.user_data.clear()
-
-        else:
-            await update.message.reply_text('❌ .پیام اشتباه! شماره تلفن باید با 09 شروع شود و کدملی هم می بایست 10 رقم باشد. همچنین اعداد باید انگلیسی وارد شده باشند.')
+        context.user_data.clear()
+    
     else:
         await update.message.reply_text('❌ پیام اشتباه! ابتدا از یک دستور در منو قرار داده شده استفاده کنید.')
 
@@ -233,54 +285,6 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
 
 
-# async def removevisit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-#     await update.message.reply_text('🔵 با استفاده از این دستور می‌توانید نوبت موردنظر خود را حذف کنید.')
-#     # Connect to database
-#     conn = psycopg2.connect(database = "Hospital Database (Sadra Hosseini)", 
-#                             user = "postgres", 
-#                             host= 'a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',
-#                             password = "KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",
-#                             port = 30500)
-#     print('App connected to database!')
-#     cur = conn.cursor()
-    
-#     cur.execute('SELECT * FROM public.visits')
-#     visits = cur.fetchall()
-#     user_id = update.message.from_user.id
-
-#     user_visits = []
-#     for visit in visits:
-#         if user_id == visit[1]:
-#             user_visits.append(visit)
-    
-#     if len(user_visits) != 0:
-#         await update.message.reply_text('💠  نوبت‌های تهیه شده توسط این اکانت تلگرام:\n\n' + helper_funcs.show_myvisits_results(user_visits,True) + '\n\n✅ شماره نوبت موردنظر خود را جهت لغو کردن وارد کنید.')
-#         context.user_data['remove_visit'] = True
-#         context.user_data['user_visits'] = user_visits
-#     else:
-#         await update.message.reply_text('در حال حاضر نوبتی تهیه نکرده‌اید. ☹️')
-    
-#     # Closing the cursur and connection
-#     cur.close()
-#     conn.close()
-
-
-# async def remove_visit_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-#     if context.user_data.get('remove_visit'):
-#         selected_visit = context.user_data['user_visits'][int(update.message.text)-1]
-        
-#         conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
-#         cur.execute(f'DELETE FROM public.visits WHERE id = {selected_visit[0]}')
-#         cur.execute(f'UPDATE public.times SET visit_count -= 1 WHERE id = {selected_visit[9]}')
-#         await update.message.reply_text('❎ نوبت موردنظر شما با موفقیت لغو شد.')
-
-#         cur.close()
-#         conn.close()
-
-#         context.user_data.clear()
-
-    
-
 def main():
     application = Application.builder().token("7047332494:AAEsLSu5OJqCYQ1VBleQevBqEbOxQ_Sx_B0").build()
 
@@ -289,11 +293,11 @@ def main():
     application.add_handler(CommandHandler("visit", visit_command))
     application.add_handler(CommandHandler("myvisits", myvisits_command))
     application.add_handler(CommandHandler("cancel", cancel_command))
-    # application.add_handler(CommandHandler("removevisit", removevisit_command))
+    application.add_handler(CommandHandler("removevisit", removevisit_command))
 
     # Message Handlers
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, visit_process))
-    # application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, remove_visit_process))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, messages_process))
+
     
     
     application.run_polling(allowed_updates=Update.ALL_TYPES)
