@@ -294,7 +294,23 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     return ConversationHandler.END
 
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    await update.message.reply_text('''
+    💠 دستورات قابل اجرا:
+    
+    ⚪ دستور /visit
+    تهیه نوبت جدید
 
+    ⚪ دستور /myvisits
+    مشاهده نوبت‌های فعال در حال حاضر که توسط این اکانت تلگرام تهیه شده‌اند
+
+    ⚪ دستور /removevisit
+    لغو نوبت یا نوبت‌ های تهیه شده
+
+    ⚪ دستور /cancel
+    لغو فرآیند نوبت‌دهی (برای زمانی که شما در حال تهیه نوبت هستید)
+    
+    ''')
 
 def main():
     application = Application.builder().token("7047332494:AAEsLSu5OJqCYQ1VBleQevBqEbOxQ_Sx_B0").build()
@@ -302,6 +318,7 @@ def main():
     # Command Handlers
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("myvisits", myvisits_command))
+    application.add_handler(CommandHandler("help", help_command))
 
     # Conversation Handler
     application.add_handler(ConversationHandler(
