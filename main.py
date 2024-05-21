@@ -1,10 +1,13 @@
-from telegram import Update
-from telegram.ext import Updater, CommandHandler, MessageHandler, ConversationHandler, filters, ContextTypes, Application
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
+from telegram.ext import Updater, CommandHandler, MessageHandler, ConversationHandler, CallbackQueryHandler, filters, ContextTypes, Application
 from telegram.ext.filters import MessageFilter
 import helper_funcs
 import psycopg2
 from datetime import datetime
 import pandas as pd
+from apscheduler.schedulers.background import BackgroundScheduler
+from persiantools.jdatetime import JalaliDate
+import asyncio
 
 # VARIABLES ###############################################################################
 
@@ -12,7 +15,7 @@ clinics_dict = {}
 doctors_dict = {}
 
 # Define states
-command_visit , command_removevisit = range(2)
+command_visit, command_removevisit, settings_menu, time_menu, visit_selection, visit_remove = range(6)
 
 ############################################################################################
 
@@ -25,7 +28,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ''')
     context.user_data['user_id'] = update.message.from_user.id
 
-async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:    
+async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ########################## UPDATE VARIABLES ##########################
     # Connect to database
     conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
@@ -287,12 +290,11 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         context.user_data['cursur'].close()
         context.user_data['connection'].close()
         context.user_data.clear()
-        await update.message.reply_text('❎ فرآیند نوبت‌دهی لغو شد.')
-    
+        await update.message.reply_text('❎ فرآیند لغو شد.')
+        return ConversationHandler.END
     except:
-        await update.message.reply_text('☹️ فرآیند نوبت‌دهی‌ای آغاز نشده است که قصد لغو آن را دارید.')
-
-    return ConversationHandler.END
+        await update.message.reply_text('❎ فرآیند لغو شد.')
+        return ConversationHandler.END
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text('''
@@ -307,10 +309,193 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     ⚪ دستور /removevisit
     لغو نوبت یا نوبت‌ های تهیه شده
 
+    ⚪ دستور /reminder
+    تنظیم یادآور برای نوبت های تهیه شده
+
     ⚪ دستور /cancel
-    لغو فرآیند نوبت‌دهی (برای زمانی که شما در حال تهیه نوبت هستید)
+    لغو اجرای فرآیند ها
     
     ''')
+
+async def reminder_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    # Send the message with the inline keyboard
+    await update.message.reply_text('⚙️ تنظیمات یادآور', reply_markup=helper_funcs.main_menu_keyboard())
+    return settings_menu
+
+async def reminder_settings_buttonmenu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data == 'create':
+        # Connect to database
+        conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
+        print('App connected to database!')
+        cur = conn.cursor()
+        user_id = query.from_user.id
+        cur.execute(f'SELECT * FROM public.visits WHERE telegram_id = {user_id}')
+        visits = cur.fetchall()
+
+        user_visits = []
+        for visit in visits:
+            if user_id == visit[1]:
+                user_visits.append(visit)
+        context.user_data['user_visits'] = visits
+        
+        if len(user_visits) != 0:
+            await query.edit_message_text(text = '💠  نوبت‌های تهیه شده توسط این اکانت تلگرام:\n\n' + helper_funcs.show_myvisits_results(user_visits,True) + '\n\n ✅ نوبت موردنظر خود را جهت تنظیم یادآور انتخاب کنید.')
+            return visit_selection
+        
+        else:
+            await query.edit_message_text(text = '''در حال حاضر نوبتی تهیه نکرده‌اید. ☹️
+            برای تنظیم یادآور ابتدا می‌بایست یک نوبت تهیه کنید. برای تهیه نوبت می‌توانید از دستور /visit استفاده کنید.
+            ''')
+
+        # Closing the cursur and connection
+        cur.close()
+        conn.close()
+
+    elif query.data == 'see':
+        # Connect to database
+        conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
+        print('App connected to database!')
+        cur = conn.cursor()
+        user_id = query.from_user.id
+        cur.execute(f'SELECT * FROM public.visits WHERE telegram_id = {query.from_user.id} AND reminder != NULL')
+        visits = cur.fetchall()
+
+        user_visits = []
+        for visit in visits:
+            if user_id == visit[1]:
+                user_visits.append(visit)
+        
+        if len(user_visits) != 0:
+            await query.edit_message_text(text = '💠  نوبت‌های تهیه شده توسط این اکانت تلگرام:\n\n' + helper_funcs.show_myvisits_results(user_visits,True) + '\n\n ✅ نوبت موردنظر خود را جهت حذف یادآور انتخاب کنید.')
+            return visit_remove
+        
+        else:
+            await query.edit_message_text(text = '''در حال حاضر نوبت یا یادآوری تنظیم نکرده‌اید. ☹️
+            برای تهیه نوبت می‌توانید از دستور /visit و برای تنظیم یادآور می‌توانید از دستور /reminder استفاده کنید.
+            ''')
+
+        # Closing the cursur and connection
+        cur.close()
+        conn.close()        
+    
+    elif query.data == 'remove':
+        # Connect to database
+        conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
+        print('App connected to database!')
+        cur = conn.cursor()
+        user_id = query.from_user.id
+        cur.execute(f'SELECT * FROM public.visits WHERE telegram_id = {query.from_user.id} AND reminder != NULL')
+        visits = cur.fetchall()
+
+        user_visits = []
+        for visit in visits:
+            if user_id == visit[1]:
+                user_visits.append(visit)
+        context.user_data['user_visits'] = visits
+        
+        if len(user_visits) != 0:
+            await query.edit_message_text(text = '💠  نوبت‌های تهیه شده توسط این اکانت تلگرام:\n\n' + helper_funcs.show_myvisits_results(user_visits,True) + '\n\n ✅ نوبت موردنظر خود را جهت حذف یادآور انتخاب کنید.')
+            return visit_remove
+        
+        else:
+            await query.edit_message_text(text = '''در حال حاضر نوبت یا یادآوری تنظیم نکرده‌اید. ☹️
+            برای تهیه نوبت می‌توانید از دستور /visit و برای تنظیم یادآور می‌توانید از دستور /reminder استفاده کنید.
+            ''')
+
+        # Closing the cursur and connection
+        cur.close()
+        conn.close()
+    
+    else:
+        pass
+
+async def visit_selection_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    try:
+        if (len(context.user_data['user_visits']) != 0) and (int(update.message.text)-1 in range(len(context.user_data['user_visits']))):
+            selected_visit = context.user_data['user_visits'][int(update.message.text)-1]
+            context.user_data['selected_visit'] = selected_visit
+
+            # Load the second menu for selecting times
+            await update.message.reply_text('⏰🗓️ زمان یادآور را برای نوبت موردنظر انتخاب کنید.', reply_markup = helper_funcs.second_menu_keyboard())
+            return time_menu
+        else:
+            await query.edit_message_text(text = '❌ پیام اشتباه! لطفا در وارد کردن شماره نوبت موردنظر خود دقت فرمایید.')
+    except:
+        await query.edit_message_text(text='❌ پیام اشتباه! لطفا در وارد کردن شماره نوبت موردنظر خود دقت فرمایید')
+
+async def visit_removing_process(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    try:
+        if (len(context.user_data['user_visits']) != 0) and (int(update.message.text)-1 in range(len(context.user_data['user_visits']))):
+            conn = helper_funcs.connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
+            print('App connected to database!')
+            cur = conn.cursor()
+            selected_visit = context.user_data['user_visits'][int(update.message.text)-1]
+            cur.execute(f"UPDATE public.visits SET reminder = NULL WHERE id = {selected_visit[0]}")
+            conn.commit()
+            
+            cur.close()
+            cur.close()
+            context.user_data.clear()
+            
+            return ConversationHandler.END
+            await query.edit_message_text(text='🗑️ یادآور موردنظر با موفقیت حذف شد.')
+        else:
+            await query.edit_message_text(text = '❌ پیام اشتباه! لطفا در وارد کردن شماره نوبت موردنظر خود دقت فرمایید.')
+    except:
+        await query.edit_message_text(text = '❌ پیام اشتباه! لطفا در وارد کردن شماره نوبت موردنظر خود دقت فرمایید.')
+
+async def time_selection_buttonmenu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    query = update.callback_query
+    await query.answer()
+
+    if query.data == 'three_hour':
+        helper_funcs.set_reminder(context.user_data['selected_visit'],query.data)
+        await query.edit_message_text(text = '✅⏰ یادآور شما برای سه ساعت قبل از نوبت موردنظر تنظیم شد.')
+        context.user_data.clear()
+        return ConversationHandler.END
+    
+    elif query.data == 'day':
+        helper_funcs.set_reminder(context.user_data['selected_visit'],query.data)
+        await query.edit_message_text(text = '✅⏰ یادآور شما برای یک روز قبل از نوبت موردنظر تنظیم شد.')
+        context.user_data.clear()
+        return ConversationHandler.END
+    
+    elif query.data == 'week':
+        helper_funcs.set_reminder(context.user_data['selected_visit'],query.data)
+        await query.edit_message_text(text = '✅⏰ یادآور شما برای یک هفته قبل از نوبت موردنظر تنظیم شد.')
+        context.user_data.clear()
+        return ConversationHandler.END
+    
+    elif query.data == 'two_week':
+        helper_funcs.set_reminder(context.user_data['selected_visit'],query.data)
+        await query.edit_message_text(text = '✅⏰ یادآور شما برای دو هفته قبل از نوبت موردنظر تنظیم شد.')
+        context.user_data.clear()
+        return ConversationHandler.END
+    
+    else:
+        pass
+
+async def send_reminder() -> None:
+    reminders = helper_funcs.get_reminders()
+    bot = Bot("7047332494:AAEsLSu5OJqCYQ1VBleQevBqEbOxQ_Sx_B0")
+    if len(reminders) == 0:
+        print('No reminders yet')
+    else:
+        for reminder in reminders:
+            visit_id, user_id, national_code, phone_number, doctor, section, visit_hour, visit_weekday, visit_date, time_id, reminder_datetime = reminder
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M")
+            print('Reminders checked at this time :',current_time)
+            if current_time == reminder_datetime:
+                message =f'''
+                ⏰ یادآوری نوبت! ⏰
+                شما در تاریخ {visit_date} ، روز {visit_weekday} ساعت {visit_hour} نوبت دکتر {doctor} بخش {section} را تهیه کرده‌اید.
+                '''
+                await bot.send_message(chat_id=user_id, text=message)
+                helper_funcs.delete_reminder(visit_id)
+
 
 def main():
     application = Application.builder().token("7047332494:AAEsLSu5OJqCYQ1VBleQevBqEbOxQ_Sx_B0").build()
@@ -323,14 +508,29 @@ def main():
     # Conversation Handler
     application.add_handler(ConversationHandler(
         entry_points=[CommandHandler('visit', visit_command),
-                      CommandHandler('removevisit', removevisit_command)],
+                      CommandHandler('removevisit', removevisit_command),
+                      CommandHandler("reminder", reminder_command)],
         states={
             command_visit: [MessageHandler(filters.TEXT & ~filters.COMMAND, visit_command_process)],
-            command_removevisit: [MessageHandler(filters.TEXT & ~filters.COMMAND, removevisit_command_process)]
+            command_removevisit: [MessageHandler(filters.TEXT & ~filters.COMMAND, removevisit_command_process)],
+            settings_menu: [CallbackQueryHandler(reminder_settings_buttonmenu)],
+            visit_selection: [MessageHandler(filters.TEXT & ~filters.COMMAND, visit_selection_process)],
+            visit_remove: [MessageHandler(filters.TEXT & ~filters.COMMAND, visit_removing_process)],
+            time_menu: [CallbackQueryHandler(time_selection_buttonmenu)]
         },
         fallbacks=[CommandHandler('cancel', cancel_command)]
     ))
-    
+
+    def run_send_reminder():
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(send_reminder())
+
+    # Start the scheduler
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(run_send_reminder, 'interval', seconds=60)
+    scheduler.start()
+
 
 
     application.run_polling(allowed_updates=Update.ALL_TYPES)
