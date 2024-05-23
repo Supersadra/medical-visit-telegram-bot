@@ -64,7 +64,7 @@ def approx_hour(visit_count,primary_hour):
 def main_menu_keyboard():
     # Define the inline keyboard
     keyboard = [
-        [InlineKeyboardButton("ایجاد یادآور جدید", callback_data='create')],
+        [InlineKeyboardButton("ایجاد/تغییر یادآور ", callback_data='create')],
         [InlineKeyboardButton("مشاهده یادآورهای ساخته شده", callback_data='see')],
         [InlineKeyboardButton("حذف یادآور", callback_data='remove')],
     ]
@@ -89,11 +89,11 @@ def set_reminder(selected_visit,time):
     visit_date = datetime.strptime(selected_visit[8],"%Y-%m-%d").date()
     # Combine the time and date of the selected visit
     combined = datetime.combine(visit_date,visit_time)
-    if time == 'hour':
+    if time == 'three_hour':
         time_change = pd.DateOffset(hours = 3)
     elif time == 'day':
         time_change = pd.DateOffset(days = 1)
-    elif time == 'one_week':
+    elif time == 'week':
         time_change = pd.DateOffset(days = 7)
     elif time == 'two_week':
         time_change = pd.DateOffset(days = 14)
@@ -101,6 +101,7 @@ def set_reminder(selected_visit,time):
         pass
     
     reminder_time = combined - time_change
+
     # Convert Hijri Shamsi to Gregorian date
     jalali_date = JalaliDate(reminder_time.year, reminder_time.month, reminder_time.day)
     gregorian_date = jalali_date.to_gregorian()
@@ -109,7 +110,6 @@ def set_reminder(selected_visit,time):
                                 reminder_time.hour, reminder_time.minute).strftime("%Y-%m-%d %H:%M")
     # Save the reminder
     conn = connect_db("Hospital Database (Sadra Hosseini)",'postgres','a2ba86d2-669b-4bf8-ab7d-1b63a3e1f1db.hsvc.ir',"KzPRmunw4j9hCdlkmXIpOkEzhenL3Jvh",30500)
-    print('App connected to database!')
     cur = conn.cursor()
     cur.execute(f"UPDATE public.visits SET reminder = '{gregorian_datetime}' WHERE id={selected_visit[0]}")
     conn.commit()
