@@ -410,7 +410,7 @@ async def reminder_removing_process(update: Update, context: ContextTypes.DEFAUL
     except:
         await update.message.reply_text('❌ پیام اشتباه! لطفا در وارد کردن شماره نوبت موردنظر خود دقت فرمایید.')
 
-async def time_selection_buttonmenu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+async def time_selection_buttonmenu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     await query.answer()
 
