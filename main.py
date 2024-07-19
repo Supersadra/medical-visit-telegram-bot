@@ -28,6 +28,10 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     ''')
     context.user_data['user_id'] = update.message.from_user.id
 
+    # Logging the action to the console
+    print(f'LOG ({datetime.now()}): User {update.message.from_user.id} starts the bot.')
+    
+
 ##################################### VISIT PROCESS ########################################
 async def visit_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ########################## UPDATE VARIABLES ##########################
@@ -178,6 +182,10 @@ async def personal_info_process(update: Update, context: ContextTypes.DEFAULT_TY
         context.user_data['connection'].close()
 
         context.user_data.clear()
+        
+        # Logging the action to the console
+        print(f'LOG ({datetime.now()}): User {update.message.from_user.id} got a visit time.')
+        
         return ConversationHandler.END
     else:
         await update.message.reply_text('❌ .پیام اشتباه! شماره تلفن باید با 09 شروع شود و کدملی هم می بایست 10 رقم باشد. همچنین اعداد باید انگلیسی وارد شده باشند.')
@@ -233,6 +241,10 @@ async def removevisit_command_process(update: Update, context: ContextTypes.DEFA
         context.user_data.clear()
         
         await update.message.reply_text('❎ نوبت موردنظر شما با موفقیت لغو شد.')
+
+        # Logging the action to the console
+        print(f'LOG ({datetime.now()}): User {update.message.from_user.id} delete a/some visit/visits.')
+
         return ConversationHandler.END
     else:
         await update.message.reply_text('❌ پیام اشتباه! شماره نوبت وارد شده در فهرست نوبت‌های تهیه شده موجود نمی‌باشد یا محتوای خواسته شده را ارسال نکرده‌اید.')        
@@ -255,6 +267,8 @@ async def myvisits_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     
     if len(user_visits) != 0:
         await update.message.reply_text('💠  نوبت‌های تهیه شده توسط این اکانت تلگرام:\n\n' + helper_funcs.show_myvisits_results(user_visits))
+        # Logging the action to the console
+        print(f"LOG ({datetime.now()}): User {update.message.from_user.id} checked his visits' list.")
     else:
         await update.message.reply_text('در حال حاضر نوبتی تهیه نکرده‌اید. ☹️')
 
@@ -269,9 +283,15 @@ async def cancel_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         context.user_data['connection'].close()
         context.user_data.clear()
         await update.message.reply_text('❎ فرآیند لغو شد.')
+
+        # Logging the action to the console
+        print(f'LOG ({datetime.now()}): User {update.message.from_user.id} cancelled a process.')
         return ConversationHandler.END
     except:
         await update.message.reply_text('❎ فرآیند لغو شد.')
+
+        # Logging the action to the console
+        print(f'LOG ({datetime.now()}): User {update.message.from_user.id} cancelled a process.')
         return ConversationHandler.END
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -294,6 +314,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
     لغو اجرای فرآیند ها
     
     ''')
+
+    # Logging the action to the console
+    print(f'LOG ({datetime.now()}): User {update.message.from_user.id} use help command.')
 
 ##################################### REMINDERS PROCESS ########################################
 async def reminder_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -340,6 +363,9 @@ async def reminder_settings_buttonmenu(update: Update, context: ContextTypes.DEF
   
         if len(visits) != 0:
             await query.edit_message_text(text = '💠  نوبت‌های تهیه شده توسط این اکانت تلگرام:\n\n' + helper_funcs.show_myvisits_results(visits))
+            
+            # Logging the action to the console
+            print(f'LOG ({datetime.now()}): User {user_id} checked his reminders.')
             return ConversationHandler.END
         else:
             await query.edit_message_text(text = '''در حال حاضر نوبت یا یادآوری تنظیم نکرده‌اید. ☹️
@@ -404,6 +430,9 @@ async def reminder_removing_process(update: Update, context: ContextTypes.DEFAUL
             context.user_data.clear()
             
             await update.message.reply_text('🗑️ یادآور موردنظر با موفقیت حذف شد.')
+
+            # Logging the action to the console
+            print(f'LOG ({datetime.now()}): User {query.from_user.id} deleted a reminder.')
             return ConversationHandler.END
         else:
             await update.message.reply_text('❌ پیام اشتباه! لطفا در وارد کردن شماره نوبت موردنظر خود دقت فرمایید.')
@@ -418,24 +447,36 @@ async def time_selection_buttonmenu(update: Update, context: ContextTypes.DEFAUL
         helper_funcs.set_reminder(context.user_data['selected_visit'],query.data)
         await query.edit_message_text(text = '✅⏰ یادآور شما برای سه ساعت قبل از نوبت موردنظر تنظیم شد.')
         context.user_data.clear()
+
+        # Logging the action to the console
+        print(f'LOG ({datetime.now()}): User {query.from_user.id} set a reminder for three hours before a visit.')
         return ConversationHandler.END
     
     elif query.data == 'day':
         helper_funcs.set_reminder(context.user_data['selected_visit'],query.data)
         await query.edit_message_text(text = '✅⏰ یادآور شما برای یک روز قبل از نوبت موردنظر تنظیم شد.')
         context.user_data.clear()
+        
+        # Logging the action to the console
+        print(f'LOG ({datetime.now()}): User {query.from_user.id} set a reminder for a day before a visit.')
         return ConversationHandler.END
     
     elif query.data == 'week':
         helper_funcs.set_reminder(context.user_data['selected_visit'],query.data)
         await query.edit_message_text(text = '✅⏰ یادآور شما برای یک هفته قبل از نوبت موردنظر تنظیم شد.')
         context.user_data.clear()
+        
+        # Logging the action to the console
+        print(f'LOG ({datetime.now()}): User {query.from_user.id} set a reminder for a week before a visit.')
         return ConversationHandler.END
     
     elif query.data == 'two_week':
         helper_funcs.set_reminder(context.user_data['selected_visit'],query.data)
         await query.edit_message_text(text = '✅⏰ یادآور شما برای دو هفته قبل از نوبت موردنظر تنظیم شد.')
         context.user_data.clear()
+        
+        # Logging the action to the console
+        print(f'LOG ({datetime.now()}): User {query.from_user.id} set a reminder for two weeks before a visit.')
         return ConversationHandler.END
     
     else:
@@ -458,6 +499,7 @@ async def send_reminder() -> None:
                 '''
                 await bot.send_message(chat_id=user_id, text=message)
                 helper_funcs.delete_reminder(visit_id)
+                print(f'LOG ({datetime.now()}): A reminder sent to user {update.message.from_user.id}')
 #############################################################################################
 
 def main():
